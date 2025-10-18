@@ -24,7 +24,7 @@ class Sound():
         self.sound.stop()
 
 class Mark():
-    def __init__(self,list_sounds:list[Sound],frequency,strength):
+    def __init__(self,list_sounds:list[str],frequency,strength):
         self.tracklist = [Sound(name_) for name_ in list_sounds]
         self.queue_played = []
         self.index_play = rn(0,len(self.tracklist)-1)

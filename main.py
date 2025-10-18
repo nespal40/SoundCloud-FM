@@ -1,7 +1,9 @@
+from os.path import isdir
 from random import choice as ch
+from os.path import isdir
+from os import listdir
 import math, pygame
 from FM import *
-from os import listdir
 
 mixer.pre_init(44100,-16,3,512)
 
@@ -348,26 +350,30 @@ def main():
     START_VOLUME, START_FREQUENCY = load()
     RANGE_FREQUENCY = (70, 130)
 
-    TRACKS_NAME = [
-        'assets/musics/ftg/Friendly Thug - NOGLETCHER [audiovk.com].mp3',
-        'assets/musics/ftg/FRIENDLY THUG 52 NGG - Sladkih Snov Rapper [audiovk.com].mp3',
-        'assets/musics/ftg/Friendly Thug 52 NGG - Больше не ошибаюсь [audiovk.com].mp3',
-        'assets/musics/tp/тёмный принц - вклубе [audiovk.com].mp3',
-        'assets/musics/tp/тёмный принц, tewiq, FORTUNA 812 - ПАПА [audiovk.com].mp3',
-        'assets/musics/tp/тёмный принц - овердоз [audiovk.com].mp3',
-        'assets/musics/но ты засыпаешь.mp3',
-        'assets/musics/the last she sent me.mp3',
-        'assets/musics/cp/CUPSIZE - кислород [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - По улице иду я [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - пока-пока [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - привет, если ты мне не ответишь [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - Пьяные [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - Семнадцатилетняя [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - тогда мы не были вдвоем (unrelease 04.10.2025) [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - Целовались [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - целую тебя [audiovk.com].mp3',
-        'assets/musics/cp/CUPSIZE - Я схожу с ума [audiovk.com].mp3'
-    ]
+    path_music = 'assets/musics/'
+    dirs = [d for d in listdir(path_music) if isdir(f'{path_music}{d}')]
+
+    MARKS = []
+    for dir_ in dirs:
+        dir_ = path_music+dir_
+        files = listdir(dir_)
+        if 'config.txt' in files:
+            with open(f'{dir_}/config.txt', mode='r',encoding='utf-8') as cnfg:
+
+                frequency = float(cnfg.readline())
+                strength = float(cnfg.readline())
+                musics = [f'{dir_}/{file}' for file in files if file[-4:] == '.mp3']
+
+                MARKS.append(Mark(musics,frequency,strength))
+        else:
+            continue
+
+    app = Application(W, H, FPS, START_VOLUME,
+                      (START_FREQUENCY - RANGE_FREQUENCY[0]) / (RANGE_FREQUENCY[1] - RANGE_FREQUENCY[0]),
+                      RANGE_FREQUENCY, MARKS)
+    app.update()
+
+    return
 
     TRACKS1 = [name_ for name_ in TRACKS_NAME[:3]]
     TRACKS2 = [name_ for name_ in TRACKS_NAME[3:6]]
