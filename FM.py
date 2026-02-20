@@ -9,7 +9,7 @@ class Sound():
     def __init__(self,sound_name,sample_rate=44100):
         self.sound = mixer.Sound(sound_name)
         self.sample_rate = sample_rate
-        self.sound_name = sound_name
+        self.sound_name = sound_name.replace(" [audiovk.com].mp3",'').split('/')[-1]
 
         self.length = self.sound.get_length()
         self.play_sound = None
@@ -27,7 +27,10 @@ class Mark():
     def __init__(self,list_sounds:list[str],frequency,strength):
         self.tracklist = [Sound(name_) for name_ in list_sounds]
         self.queue_played = []
-        self.index_play = rn(0,len(self.tracklist)-1)
+        if len(self.tracklist) ==0:
+            self.index_play = -1
+        else:
+            self.index_play = rn(0,len(self.tracklist)-1)
 
         self.frequency = frequency
         self.strength = strength
@@ -59,9 +62,11 @@ class Mark():
                     self.last_play.stop()
                     self.upd_volume(self.volume, 1, 1)
 
+            #print(self.now_play.sound_name)
+
         elif sec - self.offset_sound >= self.now_play.length-2:
-            self.last_play = self.now_play
             if len(self.tracklist) >1:
+                self.last_play = self.now_play
                 self.queue_played.append(self.index_play)
                 old_i = self.index_play
 
@@ -79,6 +84,7 @@ class Mark():
             self.now_play.play(loops=0)
 
             self.offset_sound = sec
+            #print(self.now_play.sound_name)
 
     def upd_volume(self,volume,k=1.0,channel = 1):    #0-1(float)
         self.volume = volume
@@ -124,22 +130,22 @@ class FM():
                 if near_down[1] >df or near_down[0] == -1:
                     near_down[0] = self.marks.index(mark)
                     near_down[1] = df
-                    near_down[2] = max(mark.strength-abs(df),0)/mark.strength
+                    near_down[2] = pow(max(mark.strength-abs(df),0)/mark.strength,2)
             else:
                 if near_up[1] <df or near_up[0] == -1:
                     near_up[0] = self.marks.index(mark)
                     near_up[1] = df
-                    near_up[2] = max(mark.strength-abs(df),0)/mark.strength
+                    near_up[2] = pow(max(mark.strength-abs(df),0)/mark.strength,2)
 
         if near_up[0] != -1:
             if self.marks[near_up[0]].volume >self.volume/100*near_up[2]:
                 self.marks[near_up[0]].active = True
-                print(near_up)
+                #print(near_up)
             self.marks[near_up[0]].upd_volume(self.volume/100*near_up[2])
         if near_down[0] != -1:
             if self.marks[near_down[0]].volume >self.volume/100*near_down[2]:
                 self.marks[near_down[0]].active = True
-                print(near_down)
+                #print(near_down)
             self.marks[near_down[0]].upd_volume(self.volume/100*near_down[2])
 
         self.noise.set_volume((1-max(near_up[2],near_down[2]))*self.volume/100*2)
