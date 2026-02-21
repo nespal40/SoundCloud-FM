@@ -9,18 +9,18 @@ mixer.pre_init(44100,-16,3,512)
 
 pygame.init()
 
-THEME_COLORS ={         #bg,main,sub,text
-    "BLACK/ORANGE":[(0,0,15),(255,70,1),(207,18,72),(255,255,255)],
-    "BLACK/WHITE":[(0,0,15),(225,225,225),(152,170,185),(255,255,255)],
-    "BLUE/RED":[(8,32,48),(172,50,50),(154,34,34),(255,255,255)]
+THEME_COLORS ={         #bg,main,sub,sub2,text
+    "BLACK/ORANGE":[(0,0,15),(255,70,1),(207,18,72),(255,170,101),(255,255,255)],
+    "BLACK/WHITE":[(0,0,15),(225,225,225),(152,170,185),(91,104,114),(0,0,0)],
+    "BLUE/RED":[(8,32,48),(172,50,50),(154,34,34),(103,157,193),(255,255,255)]
 }
 
-def gtc(i):         #get theme color -> return color of the choose theme
+def gtc(i):         #get theme color -> color of the choose theme
     if i == 0: return THEME_COLORS["BLACK/ORANGE"]
     elif i == 1: return THEME_COLORS["BLACK/WHITE"]
     elif i == 2: return THEME_COLORS["BLUE/RED"]
 
-def load():
+def load():         # -> data in save-file
     ret = []
     with open('assets/data.txt',mode='r',encoding='utf-8') as file:
         while True:
@@ -36,10 +36,10 @@ def load():
     print(ret)
     return ret
 
-def get_distance(p1,p2):
+def get_distance(p1,p2):        # -> distance between two points
     return math.sqrt((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)
 
-def clamp(value,min_,max_):
+def clamp(value,min_,max_):         # -> the changes value
     return max(min(value,max_),min_)
 
 
@@ -62,6 +62,9 @@ class Image():
     def re_size(self,nw,nh):
         return pygame.transform.scale(self.image,(nw,nh))
 
+    def re_size_k(self,k):
+        return pygame.transform.scale(self.image,(self.W()*k,self.H()*k))
+
     def rotate(self,angle):
         return pygame.transform.rotate(self.image,angle/math.pi*180)
 
@@ -70,6 +73,34 @@ class Image():
         srf.fill(color)
         srf.blit(self.image,(offset_x,offset_y))
         return srf
+
+def linear(x): return abs(x)
+def quadratic(x): return x*x
+
+class Animation:
+    def __init__(self,k,min_k,max_k,time_,FPS,func):
+        self.k = k
+        self.range_k = [min(min_k,max_k),max(min_k,max_k)]
+        self.time = time_ if time_ >0 else 1
+        self.FPS = FPS
+        self.speed = (self.range_k[1]-self.range_k[0])/(self.time*FPS)
+
+        self.func = func
+        self.forward = 0        # >0 - forward, 0 - pause, <0 - backward
+
+    def __call__(self, *args, **kwargs):
+        return self.k
+
+    def update(self):
+        if self.forward != 0:
+            self.k += self.speed*self.forward
+            target = self.range_k[0] if self.forward<0 else self.range_k[1]
+            if (self.k > target and self.forward==1) or (self.k < target and self.forward==-1):
+                self.k = target
+                self.forward = 0
+
+    def update_state(self,nstate):
+        self.forward = nstate
 
 class Slider():
     def __init__(self,rect,color,range_value,value,text,radius_button,image:Image=None,second_image:Image=None):
@@ -105,10 +136,19 @@ class Slider():
             else:
                 self.draw_image = self.image.clamp(self.image.W() * ((max(self.value + 0.15, 0.25)) // 0.25 * 0.25), self.image.H(), 0, 0)
 
-    def repaint(self,index_gtc):
+    def repaint(self,index_gtc,image_volume=None,image_volume_mute=None):
         color = gtc(index_gtc)[1]
 
         self.color = color
+        if self.second_image != None: self.second_image = image_volume_mute
+        if self.image != None:
+            self.image = image_volume
+
+            if self.value <= 0.05 and self.second_image != None:
+                self.draw_image = self.second_image.image
+            else:
+                self.draw_image = self.image.clamp(self.image.W() * ((max(self.value + 0.15, 0.25)) // 0.25 * 0.25),
+                                                   self.image.H(), 0, 0)
 
         self.color_button = [min(c + 15, 255) for c in color]
         self.under_color_button = [min(c + 45, 255) for c in color]
@@ -164,7 +204,7 @@ class RotateButton():
         self.image_pr = Image(pygame.Surface((5000,40)))
         self.image_pr.image.fill(gtc(self.theme_index)[1])
         for i in range(range_value[0]-8,range_value[1]+6):
-            txt = self.font.render(str(i),False,gtc(self.theme_index)[3])
+            txt = self.font.render(str(i),False,gtc(self.theme_index)[4])
             x = (i-range_value[0]+8)/5*150
             if i%5==0:
                 self.image_pr.image.blit(txt,txt.get_rect(center=(x,20)))
@@ -200,7 +240,7 @@ class RotateButton():
         self.image_pr = Image(pygame.Surface((5000, 40)))
         self.image_pr.image.fill(gtc(self.theme_index)[1])
         for i in range(self.range_value[0] - 8, self.range_value[1] + 6):
-            txt = self.font.render(str(i), False, gtc(self.theme_index)[3])
+            txt = self.font.render(str(i), False, gtc(self.theme_index)[4])
             x = (i - self.range_value[0] + 8) / 5 * 150
             if i % 5 == 0:
                 self.image_pr.image.blit(txt, txt.get_rect(center=(x, 20)))
@@ -224,6 +264,10 @@ class RotateButton():
     def set_offset(self,mp):
         self.offset_angle = -math.atan2(self.y-mp[1],self.x-mp[0])-self.angle
 
+    def unpress(self):
+        self.draw_image = self.button_image.rotate(self.angle)
+        self.press = False
+
     def update(self,mp,prs=False):
         if self.press or prs:
             if self.press:
@@ -240,8 +284,11 @@ class RotateButton():
                     pass
                 else:
                     self.angle -= dangle
+                self.draw_image = pygame.transform.rotate((self.button_image.re_size_k(0.95)),self.angle/math.pi*180)
+            else:
+                self.draw_image = self.button_image.rotate(self.angle)
 
-            self.draw_image = self.button_image.rotate(self.angle)
+
             self.draw_image_pr = self.image_pr.clamp(300,50,self.get_offset(),5,gtc(self.theme_index)[2])
             self.value = -(self.get_offset()+90)/1800
         else:
@@ -255,7 +302,7 @@ class RotateButton():
 
         surface.blit(self.draw_image_pr,self.draw_image_pr.get_rect(center=(self.x,self.y-115)))
 
-        pygame.draw.polygon(surface,(255,70+100,101),([self.x,self.y-135],[self.x-12,self.y-155],[self.x+12,self.y-155]))
+        pygame.draw.polygon(surface,gtc(self.theme_index)[3],([self.x,self.y-135],[self.x-12,self.y-155],[self.x+12,self.y-155]))
 
 class SimpleButton:
     def __init__(self,rect,image:Image,func,params = None):
@@ -289,24 +336,15 @@ class Application():
         self.theme_index = theme_index
 
         self.main_surf = pygame.Surface((W,H))
+        self.main_win_anim = Animation(1,0.85,1,0.15,FPS,linear)
 
         self.settings_panel = pygame.Surface((W,H),pygame.SRCALPHA)
-        pygame.draw.rect(self.settings_panel,(255,255,255,120),(30,50,W-60,H-100),0,10)
+        self.settings_panel_anim = Animation(0,0,1,0.1,60,quadratic)
         self.settings_panel_sbuttons = []
-        for i in range(len(THEME_COLORS)):
-            theme = gtc(i)
-            image = pygame.Surface((48,48),pygame.SRCALPHA)
-            color = (25,170,10) if i == self.theme_index else (170,24,10)
-            pygame.draw.circle(image, color, (24, 24), 24)
-            pygame.draw.arc(image,theme[0],(8,8,32,32),math.pi/4*3,math.pi/4*7,15)
-            pygame.draw.arc(image,theme[1],(8,8,32,32),-math.pi/4,math.pi/4*3,15)
-            image = Image(image)
-
-            self.settings_panel_sbuttons.append(SimpleButton((80,100+70*i,48,48),image,self.change_theme,i))
         self.is_open_settings_panel = False
 
         self.font = pygame.font.SysFont('comicsans', 24,True)
-        self.text = self.font.render("SoundCloud FM",False,gtc(self.theme_index)[3])
+        self.text = self.font.render("SoundCloud FM",False,(255,255,255))
 
         self.icon = Image(pygame.image.load('assets/images/icon.png'))
         self.draw_icon = self.icon.fill_bg(gtc(self.theme_index)[0]).re_size(160,160)
@@ -317,24 +355,21 @@ class Application():
         self.button_frequency = RotateButton((W//2,H//2+70),self.image_button.fill_bg(gtc(self.theme_index)[0]),(0,math.pi*6),f,rf,self.theme_index)
         self.rotate_buttons = [self.button_frequency]
 
-        self.image_volume = Image(pygame.image.load('assets/images/volume.jpg'))
-        self.image_volume_mute = Image(pygame.image.load('assets/images/volume_mute.jpg'))
-        self.slider_volume = Slider((W//2-150,H//2+190,300,12),gtc(self.theme_index)[1],(0,100),v/100,'',13,self.image_volume,self.image_volume_mute)
+        self.image_volume = Image(pygame.image.load('assets/images/volume.png'))
+        self.image_volume_mute = Image(pygame.image.load('assets/images/volume_mute.png'))
+        image_volume_draw = self.image_volume.fill_bg(gtc(self.theme_index)[0])
+        image_volume_mute_draw = self.image_volume_mute.fill_bg(gtc(self.theme_index)[0])
+        self.slider_volume = Slider((W//2-150,H//2+190,300,12),gtc(self.theme_index)[1],(0,100),v/100,'',13,image_volume_draw,image_volume_mute_draw)
         self.sliders = [self.slider_volume]
 
-        self.button_settings = SimpleButton([self.W-50,10,40,40],Image(pygame.image.load('assets/images/button_settings.png')),self.open_settings_panel)
+        self.button_settings = SimpleButton([self.W-50,10,40,40],Image(pygame.image.load('assets/images/button_settings.png')),self.open_settings_panel,True)
         self.simple_buttons = [self.button_settings]
-
-        """image_back = Image(pygame.image.load('assets/images/back.jpg')).re_size(60,60)
-        self.imgsize = image_back.get_size()
-        self.back_surf = pygame.Surface((W+self.imgsize[0]*2,H+self.imgsize[1]*2))
-        for x in range(0,W+self.imgsize[0]*2,self.imgsize[0]):
-            for y in range(0,H+self.imgsize[1]*2,self.imgsize[1]):
-                self.back_surf.blit(image_back,(x,y))
-        self.pos_back = [-self.imgsize[0], -self.imgsize[1]]"""
 
         self.radio.set_frequency(self.button_frequency.get_value())
 
+        self.animations = [self.main_win_anim,self.settings_panel_anim]
+
+        self.change_theme(self.theme_index)
         self.clock = pygame.time.Clock()
 
     def save(self):
@@ -344,17 +379,27 @@ class Application():
             file.write(str(self.theme_index))
         #print(self.button_frequency.get_value())
 
-    def open_settings_panel(self):
-        self.is_open_settings_panel = True
+    def open_settings_panel(self,state):
+        self.is_open_settings_panel = state
+
+        if state:
+            self.settings_panel_anim.update_state(1)
+            self.main_win_anim.update_state(-1)
+        else:
+            self.settings_panel_anim.update_state(-1)
+            self.main_win_anim.update_state(1)
 
     def change_theme(self,i):
-        if i != self.theme_index:
+        if i != self.theme_index or len(self.settings_panel_sbuttons) ==0:
             self.theme_index = i
 
             self.draw_icon = self.icon.fill_bg(gtc(self.theme_index)[0]).re_size(160,160)
 
+            image_volume_draw = self.image_volume.fill_bg(gtc(self.theme_index)[0])
+            image_volume_mute_draw = self.image_volume_mute.fill_bg(gtc(self.theme_index)[0])
+
             for slider in self.sliders:
-                slider.repaint(self.theme_index)
+                slider.repaint(self.theme_index,image_volume_draw,image_volume_mute_draw)
             for rbuttons in self.rotate_buttons:
                 rbuttons.repaint(self.theme_index,self.image_button.fill_bg(gtc(self.theme_index)[0]))
 
@@ -362,13 +407,24 @@ class Application():
             for i in range(len(THEME_COLORS)):
                 theme = gtc(i)
                 image = pygame.Surface((48, 48), pygame.SRCALPHA)
-                color = (25,170,10) if i == self.theme_index else (170,24,10)
-                pygame.draw.circle(image, color, (24, 24), 24)
-                pygame.draw.arc(image, theme[0], (8, 8, 32, 32), math.pi / 4 * 3, math.pi / 4 * 7, 15)
-                pygame.draw.arc(image, theme[1], (8, 8, 32, 32), -math.pi / 4, math.pi / 4 * 3, 15)
-                image = Image(image)
 
-                self.settings_panel_sbuttons.append(SimpleButton((80, 100 + 70 * i, 48, 48), image, self.change_theme, i))
+                image1 = pygame.Surface((48, 48), pygame.SRCALPHA)
+                image2 = pygame.Surface((48, 48), pygame.SRCALPHA)
+                color = (25, 170, 10) if i == self.theme_index else (128, 22, 12)
+                pygame.draw.circle(image, color, (24, 24), 24)
+
+                # draw first half circle
+                pygame.draw.circle(image1, theme[0], (24, 24), 20)
+                pygame.draw.polygon(image1, (0, 0, 0, 0), ([0, 0], [48, 48], [48, 0]))
+
+                # draw second half circle
+                pygame.draw.circle(image2, theme[1], (24, 24), 20)
+                pygame.draw.polygon(image2, (0, 0, 0, 0), ([0, 0], [48, 48], [0, 48]))
+
+                image.blit(image1, (0, 0))
+                image.blit(image2, (0, 0))
+
+                self.settings_panel_sbuttons.append(SimpleButton((80+(self.W//2-80-24)*(i//2), 100 + 55 * (i%2), 48, 48), Image(image), self.change_theme, i))
 
     def draw(self):
         self.win.fill(gtc(self.theme_index)[0])
@@ -387,14 +443,19 @@ class Application():
         for sbutton in self.simple_buttons:
              sbutton.draw(self.main_surf)
 
-        if self.is_open_settings_panel:
-            k = 1#0.85
+        if self.main_win_anim() != 1 or self.settings_panel_anim() != 0:
+            k = self.main_win_anim()
             draw_surf = pygame.transform.scale(self.main_surf,(self.W*k,self.H*k))
-
             self.win.blit(draw_surf,draw_surf.get_rect(center=(self.W//2,self.H//2)))
-            self.win.blit(self.settings_panel,(0,0))
+
+            self.settings_panel.fill((0,0,0,0))
+            pygame.draw.rect(self.settings_panel, (255, 255, 255, 120), (30, 50, self.W - 60, self.H - 100), 0, 10)
             for sbutton in self.settings_panel_sbuttons:
-                sbutton.draw(self.win)
+                sbutton.draw(self.settings_panel)
+            k = self.settings_panel_anim()
+            draw_panel = pygame.transform.scale(self.settings_panel,(self.W*k,self.H*k))
+
+            self.win.blit(draw_panel,draw_panel.get_rect(center=(self.W//2,self.H//2)))
         else:
             self.win.blit(self.main_surf,(0,0))
 
@@ -417,7 +478,7 @@ class Application():
                                     find = True
                                     break
                             if not find:
-                                self.is_open_settings_panel = False
+                                self.open_settings_panel(False)
 
                         else:
                             for i in range(len(self.sliders)):
@@ -437,7 +498,7 @@ class Application():
                                 if not find:
                                     for i in range(len(self.simple_buttons)):
                                         if self.simple_buttons[i].under_mouse:
-                                            self.simple_buttons[i].clickable_func()
+                                            self.simple_buttons[i].clickable_func(self.simple_buttons[i].params)
                                             break
 
 
@@ -453,7 +514,7 @@ class Application():
                         if not find:
                             for i in range(len(self.rotate_buttons)):
                                 if self.rotate_buttons[i].press:
-                                    self.rotate_buttons[i].press = False
+                                    self.rotate_buttons[i].unpress()
                                     #print(self.rotate_buttons[i].get_value())
                                     break
 
@@ -464,6 +525,9 @@ class Application():
                 rbutton.update(mouse_pos)
             for sbutton in self.simple_buttons:
                 sbutton.update(mouse_pos)
+
+            for anim in self.animations:
+                anim.update()
 
             if self.is_open_settings_panel:
                 for sbutton in self.settings_panel_sbuttons:
