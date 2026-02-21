@@ -74,30 +74,44 @@ class Image():
         srf.blit(self.image,(offset_x,offset_y))
         return srf
 
+def sqrt(x): return x**0.5
 def linear(x): return abs(x)
-def quadratic(x): return x*x
+def quadratic(x): return x**2
+def cubic(x): return abs(x**3)
+def easeInOutQuad(x):
+    if (x < 0.5):
+        return 2.0 * x * x
+    z = 1 - x
+    return 1 - 2.0 * z * z
+
+
 
 class Animation:
-    def __init__(self,k,min_k,max_k,time_,FPS,func):
-        self.k = k
+    def __init__(self,start,min_k,max_k,time_,FPS,func,clock:pygame.time.Clock):
         self.range_k = [min(min_k,max_k),max(min_k,max_k)]
         self.time = time_ if time_ >0 else 1
         self.FPS = FPS
-        self.speed = (self.range_k[1]-self.range_k[0])/(self.time*FPS)
+        self.clock = clock
+
+        self.ticks = self.time*FPS if time_>0 else 1
+        self.c = 0 if start else self.ticks
+        self.different_range = abs(self.range_k[1]-self.range_k[0])
 
         self.func = func
         self.forward = 0        # >0 - forward, 0 - pause, <0 - backward
 
     def __call__(self, *args, **kwargs):
-        return self.k
+        k = self.func(self.c/self.ticks)
+        rk = self.range_k[0]+self.different_range*k
+
+        return rk #self.k
 
     def update(self):
         if self.forward != 0:
-            self.k += self.speed*self.forward
-            target = self.range_k[0] if self.forward<0 else self.range_k[1]
-            if (self.k > target and self.forward==1) or (self.k < target and self.forward==-1):
-                self.k = target
-                self.forward = 0
+            self.c += 1*self.forward
+            target = 0 if self.forward<0 else self.ticks
+            if self.c >self.ticks or self.c < 0:
+                self.c = target
 
     def update_state(self,nstate):
         self.forward = nstate
@@ -302,7 +316,8 @@ class RotateButton():
 
         surface.blit(self.draw_image_pr,self.draw_image_pr.get_rect(center=(self.x,self.y-115)))
 
-        pygame.draw.polygon(surface,gtc(self.theme_index)[3],([self.x,self.y-135],[self.x-12,self.y-155],[self.x+12,self.y-155]))
+        pygame.draw.polygon(surface,gtc(self.theme_index)[3],([self.x,self.y-135],[self.x-12,self.y-155],[self.x+12,self.y-155]),6)
+        # pygame.draw.polygon(surface,gtc(self.theme_index)[1],([self.x,self.y-141],[self.x-8,self.y-151],[self.x+8,self.y-151]))
 
 class SimpleButton:
     def __init__(self,rect,image:Image,func,params = None):
@@ -329,6 +344,8 @@ class SimpleButton:
 class Application():
     def __init__(self,W,H,FPS,v,f,rf,marks,theme_index):
         self.win = pygame.display.set_mode((W,H))
+        self.clock = pygame.time.Clock()
+
         self.k_volume = 0.2
         self.radio = FM(v*self.k_volume,f,marks)
         self.FPS = FPS
@@ -336,10 +353,10 @@ class Application():
         self.theme_index = theme_index
 
         self.main_surf = pygame.Surface((W,H))
-        self.main_win_anim = Animation(1,0.85,1,0.15,FPS,linear)
+        self.main_win_anim = Animation(False,0.85,1,0.2,FPS,sqrt,self.clock)
 
         self.settings_panel = pygame.Surface((W,H),pygame.SRCALPHA)
-        self.settings_panel_anim = Animation(0,0,1,0.1,60,quadratic)
+        self.settings_panel_anim = Animation(True,0,1,0.3,60,easeInOutQuad,self.clock)
         self.settings_panel_sbuttons = []
         self.is_open_settings_panel = False
 
@@ -370,7 +387,6 @@ class Application():
         self.animations = [self.main_win_anim,self.settings_panel_anim]
 
         self.change_theme(self.theme_index)
-        self.clock = pygame.time.Clock()
 
     def save(self):
         with open('assets/data.txt',mode='w',encoding='utf-8') as file:
@@ -561,7 +577,7 @@ def main():
 
                 frequency = float(cnfg.readline())
                 strength = float(cnfg.readline())
-                musics = [f'{dir_}/{file}' for file in files[:3] if file[-4:] == '.mp3']
+                musics = [f'{dir_}/{file}' for file in files[:] if file[-4:] == '.mp3']
 
                 MARKS.append(Mark(musics,frequency,strength))
         else:
