@@ -12,13 +12,15 @@ pygame.init()
 THEME_COLORS ={         #bg,main,sub,sub2,text
     "BLACK/ORANGE":[(0,0,15),(255,70,1),(207,18,72),(255,170,101),(255,255,255)],
     "BLACK/WHITE":[(0,0,15),(225,225,225),(152,170,185),(91,104,114),(0,0,0)],
-    "BLUE/RED":[(8,32,48),(172,50,50),(154,34,34),(103,157,193),(255,255,255)]
+    "BLUE/RED":[(8,32,48),(172,50,50),(154,34,34),(103,157,193),(255,255,255)],
+    "PURPLE/GREEN":[(38,10,55),(20,64,75),(37,75,20),(92,138,149),(255,255,255)],
 }
 
 def gtc(i):         #get theme color -> color of the choose theme
     if i == 0: return THEME_COLORS["BLACK/ORANGE"]
     elif i == 1: return THEME_COLORS["BLACK/WHITE"]
     elif i == 2: return THEME_COLORS["BLUE/RED"]
+    elif i == 3: return THEME_COLORS["PURPLE/GREEN"]
 
 def load():         # -> data in save-file
     ret = []
@@ -79,12 +81,15 @@ def linear(x): return abs(x)
 def quadratic(x): return x**2
 def cubic(x): return abs(x**3)
 def easeInOutQuad(x):
-    if (x < 0.5):
-        return 2.0 * x * x
+    if (x < 0.5): return 2.0 * x * x
     z = 1 - x
     return 1 - 2.0 * z * z
+def easeInOutBack(x):
+    c1 = 1.70158
+    c2 = c1 * 1.525
 
-
+    return (math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 if x < 0.5 else (math.pow(2 * x - 2, 2) * (
+                (c2 + 1) * (x * 2 - 2) + c2) + 2) / 2
 
 class Animation:
     def __init__(self,start,min_k,max_k,time_,FPS,func,clock:pygame.time.Clock):
@@ -468,7 +473,7 @@ class Application():
             pygame.draw.rect(self.settings_panel, (255, 255, 255, 120), (30, 50, self.W - 60, self.H - 100), 0, 10)
             for sbutton in self.settings_panel_sbuttons:
                 sbutton.draw(self.settings_panel)
-            k = self.settings_panel_anim()
+            k = max(self.settings_panel_anim(),0)
             draw_panel = pygame.transform.scale(self.settings_panel,(self.W*k,self.H*k))
 
             self.win.blit(draw_panel,draw_panel.get_rect(center=(self.W//2,self.H//2)))
@@ -555,7 +560,7 @@ class Application():
             self.radio.update()
             self.draw()
             self.clock.tick(self.FPS)
-            pygame.display.set_caption(str(int(self.clock.get_fps())))
+            #pygame.display.set_caption(str(int(self.clock.get_fps())))
 
         self.save()
 
