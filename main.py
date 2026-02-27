@@ -90,6 +90,18 @@ def easeInOutBack(x):
 
     return (math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 if x < 0.5 else (math.pow(2 * x - 2, 2) * (
                 (c2 + 1) * (x * 2 - 2) + c2) + 2) / 2
+def easeOutElastic(x):
+    c4 = (2 * math.pi) / 3
+
+    if x == 0:return 0
+    if x == 1: return 1
+    return math.pow(2, -10 * x) * math.sin((x * 10 - 0.75) * c4) + 1
+def easeInElastic(x):
+    c4 = (2 * math.pi) / 3
+
+    if x == 0: return 0
+    if x == 1: return 1
+    return -math.pow(2, 10 * x - 10) * math.sin((x * 10 - 10.75) * c4)
 
 class Animation:
     def __init__(self,start,min_k,max_k,time_,FPS,func,clock:pygame.time.Clock):
@@ -351,7 +363,7 @@ class Application():
         self.win = pygame.display.set_mode((W,H))
         self.clock = pygame.time.Clock()
 
-        self.k_volume = 0.2
+        self.k_volume = 0.3             #ratio volume (0-mute,1-full)
         self.radio = FM(v*self.k_volume,f,marks)
         self.FPS = FPS
         self.W,self.H = W,H
@@ -361,7 +373,7 @@ class Application():
         self.main_win_anim = Animation(False,0.85,1,0.2,FPS,sqrt,self.clock)
 
         self.settings_panel = pygame.Surface((W,H),pygame.SRCALPHA)
-        self.settings_panel_anim = Animation(True,0,1,0.3,60,easeInOutQuad,self.clock)
+        self.settings_panel_anim = Animation(True,0,1,0.25,60,easeInOutBack,self.clock)
         self.settings_panel_sbuttons = []
         self.is_open_settings_panel = False
 
@@ -565,7 +577,7 @@ class Application():
         self.save()
 
 def main():
-    W, H = 400, 500
+    W, H = 380, 500
     FPS = 60
     START_VOLUME, START_FREQUENCY,THEME_INDEX = load()
     RANGE_FREQUENCY = (70, 130)
